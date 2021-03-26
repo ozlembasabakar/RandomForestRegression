@@ -17,6 +17,9 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, accuracy_score,explained_variance_score,mean_squared_error
 from sklearn.feature_selection import SelectFromModel
+from sklearn.tree import export_graphviz
+import pydot
+
 
 
 
@@ -53,6 +56,12 @@ sum_3 = X.isnull().sum()
 le_1 = LabelEncoder()
 X.iloc[:,:1] = le_1.fit_transform(X.iloc[:,:1])
 
+'''
+sns.set()
+cols = ['LifeExpectancy','status', 'AdultMortality', 'HepatitisB', 'BMI', 'Polio', 'Diphtheria', 'HIV/AIDS','GDP','Population','Thinness1-19Years','Thinness5-9Years','IncomeCompositionOfResources','Schooling']
+sns.pairplot(dataset[cols], size = 2.5)
+plt.show()
+'''
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 0)
 
@@ -98,23 +107,6 @@ r_dt = r2_score(y_test, pred_dt)
 r_rf = r2_score(y_test, pred_rf)
 
 
-
-from sklearn.linear_model import Ridge
-from sklearn.linear_model import Lasso
-
-ridge_model = Ridge()
-ridge_model.fit(X_train, y_train)
-pred_ridge = ridge_model.predict(X_test)
-r_ridge = r2_score(y_test, pred_ridge)
-RIDGE = mean_squared_error(y_test,pred_ridge)**(0.5)
-
-lasso_model = Lasso(alpha=0.00000001)
-lasso_model.fit(X_train, y_train)
-pred_lasso = lasso_model.predict(X_test)
-r_lasso = r2_score(y_test, pred_lasso)
-LASSO = mean_squared_error(y_test,pred_lasso)**(0.5)
-
-
 MLR = mean_squared_error(y_test,pred_multi)**(0.5)
 PR = mean_squared_error(y_test,pred_poly)**(0.5)
 SVR = mean_squared_error(y_test_svr,pred_svr)**(0.5)
@@ -125,10 +117,19 @@ RF = mean_squared_error(y_test,pred_rf)**(0.5)
 y = pd.DataFrame(y)
 new_data = pd.concat([y,X],axis=1)
 plt.figure(figsize=(12,10))
-cor = new_data.corr()
-sns.heatmap(cor, annot=True, cmap=plt.cm.Reds)
+corr = new_data.corr()
+sns.heatmap(corr, annot=True, cmap=plt.cm.Reds)
 plt.show()
 
+
+importances = list(regressor_rf.feature_importances_)
+feature_list = list(X.columns)
+X = np.array(X)
+feature_importances = [(X, round(importance, 2)) for X, importance in zip(feature_list, importances)]
+feature_importances = sorted(feature_importances, key = lambda x: x[1], reverse = True)
+[print('Variable: {:20} Importance: {}'.format(*pair)) for pair in feature_importances];
+
+#or
 
 sel = SelectFromModel(regressor_rf, threshold=0.05)
 sel.fit(X_train, y_train)
@@ -136,6 +137,11 @@ sel.fit(X_train, y_train)
 sel.get_support()
 selected_feat= X_train.columns[(sel.get_support())]
 
+plt.style.use('fivethirtyeight')
+x_values = list(range(len(importances)))
+plt.bar(x_values, importances, orientation = 'vertical')
+plt.xticks(x_values, feature_list, rotation='vertical')
+plt.ylabel('Importance'); plt.xlabel('Variable'); plt.title('Variable Importances')
 
 X_train_sel = sel.transform(X_train)
 X_test_sel = sel.transform(X_test)
@@ -144,19 +150,24 @@ regressor_rf_sel = RandomForestRegressor(n_estimators = 50, random_state = 0)
 regressor_rf_sel.fit(X_train_sel, y_train)
 pred_rf_sel = regressor_rf_sel.predict(X_test_sel)
 
+
 r_rf_sel = r2_score(y_test, pred_rf_sel)
 RF_sel = mean_squared_error(y_test,pred_rf_sel)**(0.5)
 
+accuracy = 100 - np.mean(RF)
+print('Mean Absolute Error RF:', round(RF, 2))
+print('Accuracy RF:', round(accuracy, 2), '%.')
+
+accuracy = 100 - np.mean(RF_sel)
+print('Mean Absolute Error RF_sel:', round(RF_sel, 2))
+print('Accuracy RF_sel:', round(accuracy, 2), '%.')
 
 
-print('RF Mean Sqr:',RF, 'R2:', r_rf)
-print('RF_sel Mean Sqr:', RF_sel,'R2:', r_rf_sel)
+tree = regressor_rf_sel.estimators_[5]
+export_graphviz(tree, out_file = 'tree.dot', feature_names = selected_feat, rounded = True, precision = 1)
+(graph, ) = pydot.graph_from_dot_file('tree.dot')
+graph.write_png('tree.png')
 
-
-sns.set()
-cols = ['LifeExpectancy','status', 'AdultMortality', 'HepatitisB', 'BMI', 'Polio', 'Diphtheria', 'HIV/AIDS','GDP','Population','Thinness1-19Years','Thinness5-9Years','IncomeCompositionOfResources','Schooling']
-sns.pairplot(dataset[cols], size = 2.5)
-plt.show()
 
 
 sns.set()
@@ -164,8 +175,12 @@ cols = [0, 'AdultMortality', 'HIV/AIDS','IncomeCompositionOfResources','Schoolin
 sns.pairplot(new_data[cols], size = 2.5)
 plt.show()
 
+#If we were to continue using this model, we could only collect the two variables and achieve nearly the same performance.
 
 
-
-
-
+    
+    
+    
+    
+    
+    
